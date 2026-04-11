@@ -10,7 +10,6 @@ def relu(Z):
 def relu_derivative(Z):
     return Z > 0
 
-
 def tanh(Z):
     return np.tanh(Z)
 
@@ -40,12 +39,59 @@ def initialize_parameters(layer_sizes):
 
     return parameters
 
+def initialize_adam(parameters):
+    v = {}
+    s = {}
+    L = len(parameters) // 2
+
+    for l in range(1, L+1):
+        v["dW"+str(l)] = np.zeros_like(parameters["W"+str(l)])
+        v["db"+str(l)] = np.zeros_like(parameters["b"+str(l)])
+
+        s["dW"+str(l)] = np.zeros_like(parameters["W"+str(l)])
+        s["db"+str(l)] = np.zeros_like(parameters["b"+str(l)])
+
+    return v, s
+
+def update_parameters_adam(parameters, grads, v, s, t,
+                           learning_rate=0.01,
+                           beta1=0.9, beta2=0.999, epsilon=1e-8):
+
+    L = len(parameters) // 2
+
+    for l in range(1, L+1):
+
+        # Momentum
+        v["dW"+str(l)] = beta1 * v["dW"+str(l)] + (1-beta1) * grads["dW"+str(l)]
+        v["db"+str(l)] = beta1 * v["db"+str(l)] + (1-beta1) * grads["db"+str(l)]
+
+        # RMSProp
+        s["dW"+str(l)] = beta2 * s["dW"+str(l)] + (1-beta2) * (grads["dW"+str(l)]**2)
+        s["db"+str(l)] = beta2 * s["db"+str(l)] + (1-beta2) * (grads["db"+str(l)]**2)
+
+        # Bias correction
+        v_corrected_dW = v["dW"+str(l)] / (1 - beta1**t)
+        v_corrected_db = v["db"+str(l)] / (1 - beta1**t)
+
+        s_corrected_dW = s["dW"+str(l)] / (1 - beta2**t)
+        s_corrected_db = s["db"+str(l)] / (1 - beta2**t)
+
+        # Update
+        parameters["W"+str(l)] -= learning_rate * (
+            v_corrected_dW / (np.sqrt(s_corrected_dW) + epsilon)
+        )
+
+        parameters["b"+str(l)] -= learning_rate * (
+            v_corrected_db / (np.sqrt(s_corrected_db) + epsilon)
+        )
+
+    return parameters, v, s
 
 # =========================
 # FORWARD PROPAGATION
 # =========================
 
-def forward_propagation(X, parameters, hidden_activation="relu"):
+def forward_propagation(X, parameters, hidden_activation="tanh"):
     cache = {}
     A = X
     L = len(parameters) // 2
@@ -69,7 +115,7 @@ def forward_propagation(X, parameters, hidden_activation="relu"):
     bL = parameters["b"+str(L)]
 
     ZL = np.dot(WL, A) + bL
-    AL = sigmoid(ZL)
+    AL = tanh(ZL)
 
     cache["Z"+str(L)] = ZL
     cache["A"+str(L)] = AL
@@ -81,11 +127,14 @@ def forward_propagation(X, parameters, hidden_activation="relu"):
 # LOSS FUNCTION (Binary Cross-Entropy)
 # =========================
 
+# def compute_loss(AL, Y): #for sigmoid 
+#     m = Y.shape[1]
+#     loss = -(1/m) * np.sum(Y*np.log(AL + 1e-8) + (1-Y)*np.log(1-AL + 1e-8))
+#     return loss
+
 def compute_loss(AL, Y):
     m = Y.shape[1]
-    loss = -(1/m) * np.sum(Y*np.log(AL + 1e-8) + (1-Y)*np.log(1-AL + 1e-8))
-    return loss
-
+    return (1/m) * np.sum((AL - Y) ** 2)
 
 # =========================
 # BACKPROPAGATION
@@ -98,7 +147,7 @@ def backward_propagation(X, Y, parameters, cache, hidden_activation="relu"):
 
     # Output layer
     AL = cache["A"+str(L)]
-    dZL = AL - Y
+    dZL = (AL - Y) * (1 - AL**2)
 
     grads["dW"+str(L)] = (1/m) * np.dot(dZL, cache["A"+str(L-1)].T)
     grads["db"+str(L)] = (1/m) * np.sum(dZL, axis=1, keepdims=True)
@@ -142,6 +191,29 @@ def update_parameters(parameters, grads, learning_rate):
 # TRAINING LOOP
 # =========================
 
+def train_adam(X, Y, layer_sizes, learning_rate=0.01, epochs=2000):
+
+    parameters = initialize_parameters(layer_sizes)
+    v, s = initialize_adam(parameters)
+
+    t = 0  # timestep
+
+    for i in range(epochs):
+        t += 1
+
+        AL, cache = forward_propagation(X, parameters, hidden_activation="tanh")
+        loss = compute_loss(AL, Y)
+        grads = backward_propagation(X, Y, parameters, cache, hidden_activation="tanh")
+
+        parameters, v, s = update_parameters_adam(
+            parameters, grads, v, s, t, learning_rate
+        )
+
+        if i % 100 == 0:
+            print(f"Epoch {i}, Loss: {loss:.4f}")
+
+    return parameters
+
 def train(X, Y, layer_sizes, learning_rate=0.1, epochs=1000, hidden_activation="relu"):
     parameters = initialize_parameters(layer_sizes)
 
@@ -163,9 +235,8 @@ def train(X, Y, layer_sizes, learning_rate=0.1, epochs=1000, hidden_activation="
 
 def predict(X, parameters):
     AL, _ = forward_propagation(X, parameters)
-    predictions = (AL > 0.5).astype(int)
-    return predictions
-
+    print("Raw outputs:", AL)
+    return np.where(AL > 0, 1, -1)
 
 # =========================
 # TEST DATA (XOR PROBLEM)
@@ -174,16 +245,16 @@ def predict(X, parameters):
 X = np.array([[0,0,1,1],
               [0,1,0,1]])
 
-Y = np.array([[0,1,1,0]])
+Y = np.array([[-1, 1, 1, -1]])
 
 # =========================
 # TRAIN MODEL
 # =========================
 
-layer_sizes = [2, 5, 5, 1]
+layer_sizes = [2, 8, 8, 1]
 
-parameters = train(X, Y, layer_sizes, learning_rate=0.1, epochs=2000)
-
+#parameters = train(X, Y, layer_sizes, learning_rate=0.1, epochs=2000)
+parameters = train_adam(X, Y, layer_sizes, learning_rate=0.01, epochs=3000)
 # =========================
 # TEST PREDICTION
 # =========================
