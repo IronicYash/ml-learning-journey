@@ -1,24 +1,14 @@
 import numpy as np
 
-# =========================
-# ACTIVATION FUNCTIONS
-# =========================
-
 def relu(Z):
     return np.maximum(0, Z)
 
 def relu_derivative(Z):
     return Z > 0
 
-
 def softmax(Z):
     expZ = np.exp(Z - np.max(Z, axis=0, keepdims=True))
     return expZ / np.sum(expZ, axis=0, keepdims=True)
-
-
-# =========================
-# INITIALIZATION
-# =========================
 
 def initialize_parameters(layer_sizes):
     parameters = {}
@@ -32,11 +22,6 @@ def initialize_parameters(layer_sizes):
         parameters["b" + str(l)] = np.zeros((layer_sizes[l], 1))
 
     return parameters
-
-
-# =========================
-# FORWARD PROPAGATION
-# =========================
 
 def forward_propagation(X, parameters):
     cache = {}
@@ -60,18 +45,9 @@ def forward_propagation(X, parameters):
     return AL, cache
 
 
-# =========================
-# LOSS FUNCTION
-# =========================
-
 def compute_loss(AL, Y):
     m = Y.shape[1]
     return -(1/m) * np.sum(Y * np.log(AL + 1e-8))
-
-
-# =========================
-# BACKPROPAGATION
-# =========================
 
 def backward_propagation(X, Y, parameters, cache):
     grads = {}
@@ -102,10 +78,6 @@ def backward_propagation(X, Y, parameters, cache):
     return grads
 
 
-# =========================
-# UPDATE PARAMETERS
-# =========================
-
 def update_parameters(parameters, grads, lr):
     L = len(parameters) // 2
 
@@ -114,11 +86,6 @@ def update_parameters(parameters, grads, lr):
         parameters["b"+str(l)] -= lr * grads["db"+str(l)]
 
     return parameters
-
-
-# =========================
-# TRAINING LOOP
-# =========================
 
 def train(X, Y, layer_sizes, epochs=2000, lr=0.1):
     parameters = initialize_parameters(layer_sizes)
@@ -134,19 +101,9 @@ def train(X, Y, layer_sizes, epochs=2000, lr=0.1):
 
     return parameters
 
-
-# =========================
-# PREDICTION
-# =========================
-
 def predict(X, parameters):
     AL, _ = forward_propagation(X, parameters)
     return np.argmax(AL, axis=0)
-
-
-# =========================
-# DATA (3-CLASS EXAMPLE)
-# =========================
 
 X = np.array([[1,0,0,1],
               [0,1,0,1]])
@@ -156,19 +113,8 @@ Y = np.array([[1,0,0,1],
               [0,1,0,0],
               [0,0,1,0]])
 
-
-# =========================
-# TRAIN MODEL
-# =========================
-
 layer_sizes = [2, 6, 6, 3]
-
 parameters = train(X, Y, layer_sizes, epochs=2000, lr=0.1)
-
-
-# =========================
-# TEST
-# =========================
 
 preds = predict(X, parameters)
 print("Predictions:", preds)
