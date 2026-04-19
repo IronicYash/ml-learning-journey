@@ -32,7 +32,7 @@ def forward(X,parameters):
         cache["Z"+str(l)] = Z
         cache["A"+str(l)] = A
 
-    ZL = np.dot(parameters["W"+str(L)],A) + parameters["b"+str[L]]
+    ZL = np.dot(parameters["W"+str(L)],A) + parameters["b"+str(L)]
     AL = softmax(ZL)
 
     cache["Z"+str(L)] = ZL 
@@ -40,11 +40,17 @@ def forward(X,parameters):
 
     return AL,cache
 
-def compute_loss(AL,Y):
+def compute_loss(AL, Y, parameters, lambd):
     m = Y.shape[1]
-    return -(1/m)*np.sum(Y*np.log(AL+1e-8))
+    cross_entropy = -(1/m) * np.sum(Y * np.log(AL + 1e-8))
+    L2 = 0
+    L = len(parameters) // 2
+    for l in range(1, L+1):
+        L2 += np.sum(parameters["W"+str(l)]**2)
+    L2 = (lambd/(2*m)) * L2
+    return cross_entropy + L2
 
-def backward(X,Y,parameters,cache):
+def backward(X, Y, parameters, cache, lambd):
     grads = {}
     m = X.shape[1]
     L = len(parameters) // 2 
@@ -52,7 +58,7 @@ def backward(X,Y,parameters,cache):
     AL = cache["A"+str(L)]
     dz = AL - Y
 
-    grads["dW"+str(L)] = (1/m)*np.dot(dz,cache["A"+str(L-1).T])
+    grads["dW"+str(L)] = (1/m)*np.dot(dz,cache["A"+str(L-1)].T)
     grads["db"+str(L)] = (1/m)*np.sum(dz,axis=1,keepdims=True)
 
     dA = np.dot(parameters["W"+str(L)].T,dz)
@@ -61,7 +67,7 @@ def backward(X,Y,parameters,cache):
         dz = dA * relu_derivate(cache["Z"+str(l)])
         A_prev = X if l==1 else cache["A"+str(l-1)]
 
-        grads["dW"+str(l)] = (1/m)*np.dot(dz,A_prev.T)
+        grads["dW"+str(l)] = (1/m) * np.dot(dz, A_prev.T) + (lambd/m) * parameters["W"+str(l)]
         grads["db"+str(l)] = (1/m)*np.sum(dz,axis=1,keepdims=True)
 
         dA = np.dot(parameters["W"+str(l)].T,dz)
@@ -72,8 +78,8 @@ def backward(X,Y,parameters,cache):
 def update(parameters,grads,lr):
     L = len(parameters)//2
     for l in range(1,L+1):
-        parameters["W"+str(1)] -= lr*grads["dW"+str(l)]
-        parameters["b"+str(1)] -= lr*grads["db"+str(l)]
+        parameters["W"+str(l)] -= lr*grads["dW"+str(l)]
+        parameters["b"+str(l)] -= lr*grads["db"+str(l)]
     return parameters
 
 #predict
@@ -109,7 +115,6 @@ X_test = X_test.T
 Y_train_oh = one_hot(Y_train, 10)
 Y_test_oh = one_hot(Y_test, 10)
 
-
 # TRAIN
 layer_sizes = [64, 32, 16, 10]
 
@@ -117,16 +122,15 @@ parameters = initialize_parameters(layer_sizes)
 
 epochs = 2000
 lr = 0.1
+lambd = 0.1
 
 for i in range(epochs):
     AL, cache = forward(X_train, parameters)
-    loss = compute_loss(AL, Y_train_oh)
-    grads = backward(X_train, Y_train_oh, parameters, cache)
+    loss = compute_loss(AL, Y_train_oh, parameters, lambd)
+    grads = backward(X_train, Y_train_oh, parameters, cache, lambd)
     parameters = update(parameters, grads, lr)
-
     if i % 100 == 0:
         print(f"Epoch {i}, Loss: {loss:.4f}")
-
 
 # EVALUATION
 train_preds = predict(X_train, parameters)

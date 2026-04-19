@@ -262,3 +262,5 @@ parameters = train_adam(X, Y, layer_sizes, learning_rate=0.01, epochs=3000)
 preds = predict(X, parameters)
 print("Predictions:", preds)
 print("Actual:", Y)
+
+#extra 
